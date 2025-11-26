@@ -1,79 +1,203 @@
 #include "controller.h"
-#include "spdlog/spdlog.h"
-#include "config_prod.h"
-#include <QCoreApplication>
 
-Controller::Controller(Model& model, MainWindow& view) : model_(model), view_(view)
+Controller::Controller(const GameConfig& gameConfig, Model& model, QQmlApplicationEngine& view) : gameArenaSize_(gameConfig.getGameArenaSize()), model_(model), view_(view),
+                                                                                                  gameStateManager_(this)
 {
-    spdlog::debug("Initializing controller");
+    gameLoop_ = std::make_unique<GameLoop>(gameConfig, model_);
 
-    gameLoop_ = std::make_unique<GameLoop>(model_);
-    gameManager_ = std::make_unique<GameManager>(model_);
+    // Initialize these early so Q_PROPERTY getters work when QML loads
+    gameCoordinator_ = std::make_unique<GameCoordinator>(gameConfig, model_, *gameLoop_);
+    inputHandler_ = std::make_unique<InputHandler>(this, &windowManager_);
 
-    gameManager_->setGameLoop(gameLoop_.get());
-
-    connect(gameLoop_.get(), &GameLoop::endGame, gameManager_.get(), &GameManager::endGame);
-
-    model_.getScreenTextDisplay().setGameManager(gameManager_.get());
-
-    subscribeToFrontendEvents();
-
-    gameManager_->prepareGameToStart();
-
-    view_.startRendering();
+    connect(gameLoop_.get(), &GameLoop::ballUpdated, this, &Controller::ballChanged);
+    connect(gameLoop_.get(), &GameLoop::endGame, this, &Controller::gameEnded);
 }
 
-void Controller::subscribeToFrontendEvents()
+void Controller::onQmlEngineFullyInitialized()
 {
-    connect(&view_, &MainWindow::mouseClickedEvent, this, &Controller::processMouseClickedEvent);
-    connect(&view_, &MainWindow::mouseMovedEvent, this, &Controller::processMouseMovedEvent);
-    connect(&view_, &MainWindow::keyPressedEvent, this, &Controller::processKeyPressedEvent);
-    connect(&view_, &MainWindow::applicationTerminationRequest, this, &Controller::processApplicationTerminationRequest);
+    qDebug() << "QML engine fully initialized";
+
+    windowManager_.setWindow(qmlHelper_.getMainWindow());
+    overlayManager_ = std::make_unique<OverlayManager>(qmlHelper_);
+
+    // Now that QML is loaded, provide QmlHelper to GameCoordinator
+    gameCoordinator_->setQmlHelper(&qmlHelper_);
+
+    qInfo() << "Game started. Resolution =" << windowManager_.getInitialRenderResolution().width() << "x" << windowManager_.getInitialRenderResolution().height();
+
+    setGameState(GameStateType::ReadyToStart);
 }
 
-void Controller::processMouseClickedEvent()
+void Controller::setGameState(const GameStateType newGameState)
 {
-    //qDebug() << "Mouse clicked";
+    gameStateManager_.setGameState(newGameState);
+}
 
-    if(gameManager_->isReadyToStart())
+void Controller::restorePreviousState()
+{
+    gameStateManager_.restorePreviousGameState();
+}
+
+void Controller::processMouseMove(const qreal mouseX, const qreal gameAreaWidth)
+{
+    inputHandler_->processMouseMove(mouseX, gameAreaWidth);
+}
+
+void Controller::processMouseClick(const Qt::MouseButton button)
+{
+    inputHandler_->processMouseClick(button);
+}
+
+void Controller::processKeyPress(const int key)
+{
+    inputHandler_->processKeyPress(key);
+}
+
+void Controller::startGameLoop()
+{
+    // qDebug() << "Controller::startGameLoop()";
+    gameCoordinator_->startGameLoop();
+}
+
+void Controller::stopGameLoop()
+{
+    // qDebug() << "Controller::stopGameLoop()";
+    gameCoordinator_->stopGameLoop();
+}
+
+void Controller::setPaddlePosition(const qreal mouseX, const qreal gameAreaWidth)
+{
+    gameCoordinator_->setPaddlePosition(mouseX, gameAreaWidth);
+    emit paddleChanged();
+}
+
+void Controller::setBallPositionOnPaddle()
+{
+    gameCoordinator_->setBallPositionOnPaddle();
+    emit ballChanged();
+}
+
+void Controller::launchBall()
+{
+    gameCoordinator_->launchBall();
+}
+
+void Controller::enablePaddleMovement()
+{
+    gameCoordinator_->enablePaddleMovement();
+}
+
+void Controller::disablePaddleMovement()
+{
+    gameCoordinator_->disablePaddleMovement();
+}
+
+void Controller::showTextOverlay(const QString& text)
+{
+    overlayManager_->showTextOverlay(text);
+}
+
+void Controller::hideTextOverlay()
+{
+    overlayManager_->hideTextOverlay();
+}
+
+void Controller::showEscapeMenuOverlay()
+{
+    overlayManager_->showEscapeMenuOverlay();
+}
+
+void Controller::hideEscapeMenuOverlay()
+{
+    overlayManager_->hideEscapeMenuOverlay();
+}
+
+void Controller::showEndGameOverlay(const GameResult gameResult)
+{
+    overlayManager_->showEndGameOverlay(gameResult, model_.getScoreManager().getScoreAsString());
+}
+
+void Controller::hideEndGameOverlay()
+{
+    overlayManager_->hideEndGameOverlay();
+}
+
+qreal Controller::getPaddleX() const
+{
+    return gameCoordinator_->getPaddleX();
+}
+
+qreal Controller::getPaddleY() const
+{
+    return gameCoordinator_->getPaddleY();
+}
+
+qreal Controller::getPaddleWidth() const
+{
+    return gameCoordinator_->getPaddleWidth();
+}
+
+qreal Controller::getPaddleHeight() const
+{
+    return gameCoordinator_->getPaddleHeight();
+}
+
+qreal Controller::getBallX() const
+{
+    return gameCoordinator_->getBallX();
+}
+
+qreal Controller::getBallY() const
+{
+    return gameCoordinator_->getBallY();
+}
+
+qreal Controller::getBallDiameter() const
+{
+    return gameCoordinator_->getBallDiameter();
+}
+
+void Controller::gameEnded(const GameResult gameResult)
+{
+    qDebug() << "Controller received endGame signal";
+
+    if (gameResult == GameResult::VICTORY)
     {
-        gameManager_->startGame();
+        qInfo() << "Game ended. Result = victory";
+        setGameState(GameStateType::StoppedWin);
     }
-    else if(gameManager_->isStopped())
+    else if (gameResult == GameResult::DEFEAT)
     {
-        gameManager_->prepareGameToStart();
-        view_.setMousePositionAtScreenCenter();
+        qInfo() << "Game ended. Result = defeat";
+        setGameState(GameStateType::StoppedLose);
     }
     else
     {
-        spdlog::warn("Mouse clicked but game is not in READY_TO_START or STOPPED state");
+        throw std::runtime_error("Unsupported game result");
     }
 }
 
-void Controller::processMouseMovedEvent(int mousePositionX)
+void Controller::onResumeClicked()
 {
-    //qDebug() << "Mouse moved event";
-
-    if(mousePositionX > ConfigProd::Paddle::WIDTH / 2 && mousePositionX < ConfigProd::Arena::WIDTH - ConfigProd::Paddle::WIDTH / 2)
-    {
-        model_.getPaddle().setHorizontalPosition(mousePositionX);
-
-        if(!gameManager_->isRunning())
-        {
-            model_.getBall().setHorizontalPosition(mousePositionX);
-        }
-    }
+    qInfo() << "Resume button clicked";
+    gameStateManager_.restorePreviousGameState();
 }
 
-void Controller::processKeyPressedEvent(QKeyEvent* keyEvent)
+void Controller::onRestartClicked()
 {
-    if(keyEvent->key() == Qt::Key::Key_Escape)
-    {
-        processApplicationTerminationRequest();
-    }
+    qInfo() << "Restart button clicked";
+    gameCoordinator_->restartGame();
+    gameStateManager_.setGameState(GameStateType::ReadyToStart);
 }
 
-void Controller::processApplicationTerminationRequest()
+void Controller::onQuitClicked()
 {
-    QCoreApplication::exit(0);
+    qInfo() << "Quit button clicked";
+    emit applicationShutdownRequested();
+}
+
+void Controller::onPlayAgainClicked()
+{
+    gameCoordinator_->restartGame();
+    gameStateManager_.setGameState(GameStateType::ReadyToStart);
 }

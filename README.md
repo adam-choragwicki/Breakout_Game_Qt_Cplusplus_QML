@@ -1,26 +1,17 @@
 # Breakout
-C++ implementation of classic Breakout game using Qt 6.2.4 library.
+C++ implementation of the classic Breakout game using Qt 6.9.2.
 
-**Windows and Linux executables are provided.**
+Frontend is rendered using QML engine.
 
-![video.gif](video.gif)
+**Windows executable is provided.**
 
-# How to run on Linux
-1. Download release zip from:\
-https://github.com/adam-choragwicki/Breakout_Game_Qt_Cplusplus/releases/latest/download/executable_linux.zip
-2. Unzip
-3. Run **executable_linux/Breakout.sh**
+![breakout.gif](breakout.gif)
 
-**OR**
-
-1. Clone repository and run **Breakout.sh**
+# Tests
+Unit tested using Google Test 1.17.0
 
 # How to run on Windows
 1. Download release zip from:\
 https://github.com/adam-choragwicki/Breakout_Game_Qt_Cplusplus/releases/latest/download/executable_windows.zip
 2. Unzip
-3. Run **executable_linux/Breakout.exe**
-
-**OR**
-
-1. Clone repository and run **Breakout.bat**
+3. Run **executable_windows/Breakout.exe**

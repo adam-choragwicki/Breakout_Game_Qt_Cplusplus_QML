@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>sounds/paddle_collision.wav</file>
+        <file>sounds/brick_collision_1.wav</file>
+        <file>sounds/brick_collision_2.wav</file>
+        <file>sounds/brick_collision_3.wav</file>
+    </qresource>
+</RCC>

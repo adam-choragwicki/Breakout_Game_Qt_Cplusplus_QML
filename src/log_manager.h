@@ -1,37 +1,41 @@
 #pragma once
 
-#include "spdlog/spdlog.h"
-#include "spdlog/sinks/basic_file_sink.h"
+#include <QFile>
 
 class LogManager
 {
 public:
-    static void activateLogging()
+    enum class Mode
     {
-        spdlog::set_level(spdlog::level::debug);
-        spdlog::flush_on(spdlog::level::debug);
-
-        if(loggingMode_ == LoggingMode::LOG_TO_FILE_AND_CONSOLE)
-        {
-            qDebug() << "Logging to file and console";
-            spdlog::default_logger()->sinks().push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/log.txt", true));
-        }
-        else if(loggingMode_ == LoggingMode::LOG_TO_FILE_ONLY)
-        {
-            qDebug() << "Logging to file only";
-            spdlog::default_logger()->sinks().push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/log.txt", true));
-        }
-        else if(loggingMode_ == LoggingMode::LOG_TO_CONSOLE_ONLY)
-        {
-            qDebug() << "Logging to console only";
-        }
-    }
-
-private:
-    enum class LoggingMode
-    {
-        LOG_TO_FILE_AND_CONSOLE, LOG_TO_FILE_ONLY, LOG_TO_CONSOLE_ONLY
+        LogToConsoleOnly,
+        LogToFileOnly,
+        LogToFileAndConsole
     };
 
-    inline static LoggingMode loggingMode_ = LoggingMode::LOG_TO_FILE_AND_CONSOLE;
+    enum class Verbosity
+    {
+        Debug,   // show everything
+        Info,    // show INFO, WARN, CRITICAL, FATAL
+        Warning, // only WARN and worse
+        Error    // CRITICAL + FATAL
+    };
+
+    static void initialize(Mode loggingMode = Mode::LogToFileAndConsole, Verbosity verbosity = Verbosity::Debug);
+
+private:
+    static void messageHandler(QtMsgType type,
+                               const QMessageLogContext& context,
+                               const QString& msg);
+
+    static QString modeToString(Mode mode);
+    static QString verbosityToString(Verbosity verbosity);
+
+    static inline auto loggingMode_ = Mode::LogToFileAndConsole;
+    static inline auto verbosity_ = Verbosity::Debug;
+
+    static inline std::unique_ptr<QFile> logFile_;
+    static inline std::unique_ptr<QTextStream> logStream_;
+
+    // turn this ON/OFF to include a source file / line in logs
+    static constexpr bool ENABLE_CONTEXT_INFO = false;
 };
