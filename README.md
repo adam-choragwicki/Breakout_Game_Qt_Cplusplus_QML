@@ -1,3 +1,5 @@
+[![Tests](https://github.com/adam-choragwicki/Breakout_Game_Qt_Cplusplus_QML/actions/workflows/tests-workflow.yml/badge.svg)](https://github.com/adam-choragwicki/Breakout_Game_Qt_Cplusplus_QML/actions/workflows/tests-workflow.yml)
+
 # Breakout
 C++ implementation of the classic Breakout game using Qt 6.9.2.
 
