@@ -21,7 +21,7 @@ void SoundPlayer::playBrickCollision() const
 
     if (!sounds.empty())
     {
-        const uint idx = QRandomGenerator::global()->bounded(sounds.size());
+        const uint idx = QRandomGenerator::global()->bounded(static_cast<int>(sounds.size()));
         sounds[idx]->play();
     }
 }

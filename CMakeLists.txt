@@ -5,7 +5,7 @@ project(Breakout VERSION 2.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 6.9.2 REQUIRED COMPONENTS Core Quick Multimedia)
+find_package(Qt6 6.9.2 REQUIRED COMPONENTS Core Quick Multimedia QuickControls2Basic QuickLayouts)
 
 qt_standard_project_setup(REQUIRES 6.9)
 
